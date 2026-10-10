@@ -1,5 +1,5 @@
 // Bubbelbende: eenvoudige offline-cache. Netwerk eerst, cache als terugval.
-const CACHE = 'bubbelbende-v3';
+const CACHE = 'bubbelbende-v4';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

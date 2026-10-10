@@ -58,6 +58,9 @@ button{font-family:var(--display);font-size:20px;color:var(--night);background:v
 button:active{transform:translateY(3px);box-shadow:0 2px 0 #7da22a}
 button:focus-visible{outline:3px solid var(--bubble);outline-offset:4px}
 .small{font-size:11px;color:var(--muted);letter-spacing:.08em}
+
+.me{font-size:12px;color:var(--lime);letter-spacing:.06em;min-height:1em}
+.note{position:absolute;left:16px;right:16px;top:70px;z-index:5;padding:12px 16px;border-radius:14px;background:var(--lime);color:var(--night);font-size:13px;line-height:1.45;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .big{font-family:var(--display);font-size:44px;color:var(--lime)}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}/* alles wat de host aan body toevoegt (badges, banners) verbergen */
@@ -74,6 +77,7 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
     <div class="right"><div class="lbl">Combo</div><div class="val" id="combo">x1</div><div class="lives" id="lives"></div></div>
   </div>
 
+  <div class="note" id="meNote" hidden></div>
   <div class="overlay" id="menu">
     <h1>Bubbel<br>bende</h1>
     <div class="rules">
@@ -86,6 +90,7 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
     </div>
     <button id="startBtn">Spelen</button>
     <div class="small" id="bestLine">Beste score: 0</div>
+    <div class="me" id="meLine"></div>
   </div>
 
   <div class="overlay" id="intro" hidden>
@@ -152,12 +157,16 @@ let best=0;try{best=+localStorage.getItem('bubbelbende-best')||0}catch(e){}
 $('bestLine').textContent='Beste score: '+best;
 /* meldingen: alleen als het niet jouw eigen apparaat is. Open eenmalig .../#ik om dit apparaat als 'jij' te markeren */
 let isMe=false;
-try{
-  if(location.hash==='#ik'){localStorage.setItem('bubbelbende-ik','1');history.replaceState(null,'',location.pathname);}
-  if(location.hash==='#niet-ik'){localStorage.removeItem('bubbelbende-ik');history.replaceState(null,'',location.pathname);}
-  isMe=localStorage.getItem('bubbelbende-ik')==='1';
-}catch(e){}
-if(isMe)$('bestLine').textContent+=' \u00b7 jouw apparaat';
+function applyHash(){
+  try{
+    if(location.hash==='#ik'){localStorage.setItem('bubbelbende-ik','1');history.replaceState(null,'',location.pathname);showMeNote('Herkend: dit apparaat is van jou. Je krijgt geen melding als je hier speelt.');}
+    if(location.hash==='#niet-ik'){localStorage.removeItem('bubbelbende-ik');history.replaceState(null,'',location.pathname);showMeNote('Dit apparaat telt weer als bezoeker.');}
+    isMe=localStorage.getItem('bubbelbende-ik')==='1';
+  }catch(e){}
+  $('meLine').textContent=isMe?'Jouw apparaat, meldingen staan uit':'';
+}
+function showMeNote(t){const n=$('meNote');n.textContent=t;n.hidden=false;clearTimeout(showMeNote.t);showMeNote.t=setTimeout(()=>n.hidden=true,6000);}
+addEventListener('hashchange',applyHash);
 const REAL_SECS=45;
 let playSecs=0,pinged=false;
 function ping(event){
@@ -660,6 +669,7 @@ async function begin(){
 $('startBtn').onclick=begin;$('againBtn').onclick=begin;
 $('goBtn').onclick=startWave;
 
+applyHash();
 resize();makeStars();requestAnimationFrame(loop);
 })();
 
