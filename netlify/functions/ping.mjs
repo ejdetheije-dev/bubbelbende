@@ -4,7 +4,7 @@ export default async (req, context) => {
   const env = k => (globalThis.Netlify?.env?.get(k) ?? process.env[k] ?? '').trim();
   const token = env('PUSHOVER_TOKEN');
   const user = env('PUSHOVER_USER');
-  if (req.method === 'GET') return Response.json({ v: 3, token: token.length, user: user.length, keys: Object.keys(process.env).filter(k => k.startsWith('PUSH')) });
+  if (req.method === 'GET') return Response.json({ ingesteld: token.length > 0 && user.length > 0 });
   if (req.method !== 'POST') return new Response('Alleen POST', { status: 405 });
   if (!token || !user) return new Response('Pushover niet ingesteld', { status: 500 });
 
