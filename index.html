@@ -150,6 +150,21 @@ addEventListener('resize',resize);
 
 let best=0;try{best=+localStorage.getItem('bubbelbende-best')||0}catch(e){}
 $('bestLine').textContent='Beste score: '+best;
+/* meldingen: alleen als het niet jouw eigen apparaat is. Open eenmalig .../#ik om dit apparaat als 'jij' te markeren */
+let isMe=false;
+try{
+  if(location.hash==='#ik'){localStorage.setItem('bubbelbende-ik','1');history.replaceState(null,'',location.pathname);}
+  if(location.hash==='#niet-ik'){localStorage.removeItem('bubbelbende-ik');history.replaceState(null,'',location.pathname);}
+  isMe=localStorage.getItem('bubbelbende-ik')==='1';
+}catch(e){}
+if(isMe)$('bestLine').textContent+=' \u00b7 jouw apparaat';
+const REAL_SECS=45;
+let playSecs=0,pinged=false;
+function ping(event){
+  if(isMe||location.protocol==='file:')return;
+  try{fetch('/.netlify/functions/ping',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({event,wave,score,secs:Math.round(playSecs),ua:navigator.userAgent})}).catch(()=>{});}catch(e){}
+}
 
 /* geluid */
 let ac=null;
@@ -349,6 +364,7 @@ function loseLife(){
 }
 function gameOver(){
   state='over';
+  if(pinged)ping('klaar');
   if(score>best){best=score;try{localStorage.setItem('bubbelbende-best',best)}catch(e){}$('overMsg').textContent='Nieuwe beste score. Golf '+wave+' gehaald.';}
   else $('overMsg').textContent='Beste score: '+best+'. Golf '+wave+' gehaald.';
   $('finalScore').textContent=score;$('over').hidden=false;$('bestLine').textContent='Beste score: '+best;
@@ -364,6 +380,8 @@ function update(dt){
   shake*=.88;
   if(state!=='play')return;
 
+  playSecs+=dt;
+  if(!pinged&&(playSecs>=REAL_SECS||wave>=2)){pinged=true;ping('speelt');}
   if(score>=nextLife){addLife(W/2,H*.45,nextLife.toLocaleString('nl-NL')+' punten:');nextLife+=LIFE_STEP;}
   for(const k of['magneet','vuur','krimp'])if(fx[k]>0)fx[k]=Math.max(0,fx[k]-dt);
   const PW=pw();
@@ -634,6 +652,7 @@ function loop(t){
 document.addEventListener('visibilitychange',()=>{paused=document.hidden;last=performance.now();});
 
 async function begin(){
+  playSecs=0;pinged=false;
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
   try{await navigator.wakeLock?.request('screen');}catch(e){}
   $('menu').hidden=true;$('over').hidden=true;newGame();
