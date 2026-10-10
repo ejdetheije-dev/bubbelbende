@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#120b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bubbelbende</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Martian+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: één scherm, canvas vult alles, HUD en kaarten zweven erover. Bewust één donker arcadethema. */
+:root{
+  --night:#120b2e;
+  --deep:#1c1147;
+  --bubble:#7ee7ff;
+  --candy:#ff5fa2;
+  --lime:#c6ff4d;
+  --ink:#f3edff;
+  --muted:#a99bd6;
+  --display:"Bungee","Impact","Arial Black",sans-serif;
+  --mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;}
+body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+#wrap{position:relative;height:100%;width:100%;max-width:560px;margin:0 auto;}
+canvas{display:block;width:100%;height:100%;touch-action:none;}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:12px 16px;pointer-events:none;font-variant-numeric:tabular-nums;}
+.hud .lbl{font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;}
+.hud .val{font-family:var(--display);font-size:22px;line-height:1.1;color:var(--ink);}
+.hud .mid{text-align:center}
+.hud .right{text-align:right}
+#combo{color:var(--lime)}
+.lives{display:flex;gap:5px;justify-content:flex-end;margin-top:4px}
+.lives i{width:14px;height:14px;border-radius:50%;border:2px solid var(--bubble);display:block}
+.lives i.off{border-color:var(--deep)}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding-inline:24px;text-align:center;background:color-mix(in srgb,var(--night) 80%,transparent);}
+.overlay h1{font-family:var(--display);font-weight:400;font-size:clamp(38px,12vw,60px);line-height:.95;margin:0;
+  color:var(--bubble);text-shadow:4px 4px 0 var(--candy);text-wrap:balance;}
+.overlay h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,9vw,40px);line-height:1;margin:0;color:var(--ink);text-wrap:balance}
+.overlay p{margin:0;max-width:32ch;font-size:13px;line-height:1.6;color:var(--ink)}
+.tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1.5px solid currentColor}
+.tag.monster{color:var(--candy)} .tag.feature{color:var(--bubble)} .tag.remix{color:var(--lime)}
+#introArt{width:120px;height:90px}
+.rules{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;text-align:left;font-size:12px;line-height:1.45;max-width:320px}
+.rules b{font-family:var(--display);font-weight:400;color:var(--lime);font-size:13px}
+.rules span{min-width:0}
+button{font-family:var(--display);font-size:20px;color:var(--night);background:var(--lime);border:0;border-radius:999px;
+  padding:14px 34px;box-shadow:0 5px 0 #7da22a;cursor:pointer}
+button:active{transform:translateY(3px);box-shadow:0 2px 0 #7da22a}
+button:focus-visible{outline:3px solid var(--bubble);outline-offset:4px}
+.small{font-size:11px;color:var(--muted);letter-spacing:.08em}
+.big{font-family:var(--display);font-size:44px;color:var(--lime)}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="c" aria-label="Speelveld"></canvas>
+  <div class="hud">
+    <div><div class="lbl">Score</div><div class="val" id="score">0</div></div>
+    <div class="mid"><div class="lbl">Golf</div><div class="val" id="wave">1</div></div>
+    <div class="right"><div class="lbl">Combo</div><div class="val" id="combo">x1</div><div class="lives" id="lives"></div></div>
+  </div>
+
+  <div class="overlay" id="menu">
+    <h1>Bubbel<br>bende</h1>
+    <div class="rules">
+      <b>Pong</b><span>Schuif met je duim in de strook onderin, of waar je wilt: de paddle volgt je beweging. Tik om de bal te lanceren.</span>
+      <b>Raak</b><span>Een invader die je raakt, zit gevangen in een bubbel en zweeft omhoog.</span>
+      <b>Knal</b><span>Raak de bubbel opnieuw. Bubbels die tegen elkaar zitten knallen mee.</span>
+      <b>Combo</b><span>Elke knal zonder dat de bal de paddle raakt verhoogt je multiplier.</span>
+      <b>Leven</b><span>Extra leven bij elke 10.000 punten, een foutloze golf, een ketting van 4 bubbels of een vallend hartje.</span>
+      <b>Nieuw</b><span>Het tempo blijft gelijk. Elke golf brengt een nieuw monster of een nieuwe vaardigheid.</span>
+    </div>
+    <button id="startBtn">Spelen</button>
+    <div class="small" id="bestLine">Beste score: 0</div>
+  </div>
+
+  <div class="overlay" id="intro" hidden>
+    <div class="small" id="introWave">Golf 1</div>
+    <span class="tag" id="introTag">Nieuw monster</span>
+    <canvas id="introArt" width="240" height="180"></canvas>
+    <h2 id="introName">Invaders</h2>
+    <p id="introText"></p>
+    <button id="goBtn">Starten</button>
+  </div>
+
+  <div class="overlay" id="over" hidden>
+    <h1>Game<br>over</h1>
+    <div class="big" id="finalScore">0</div>
+    <p id="overMsg"></p>
+    <button id="againBtn">Nog een keer</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const C={bubble:'#7ee7ff',candy:'#ff5fa2',lime:'#c6ff4d',ink:'#f3edff',muted:'#a99bd6',deep:'#1c1147',night:'#120b2e',
+  orange:'#ffb347',violet:'#b18cff',gold:'#ffe066'};
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---- monsters ---- */
+const MON={
+  gewoon:  {col:C.candy, spr:["0011100","0111110","1101011","1111111","0101010","1000001"]},
+  pantser: {col:C.orange,spr:["1111111","1011101","1111111","1111111","0110110","1100011"],hp:2},
+  sproeier:{col:C.lime,  spr:["0001000","0011100","0111110","1101011","1111111","1010101"]},
+  zinker:  {col:C.violet,spr:["0111110","1111111","1001001","1111111","1111111","0101010"]},
+  flitser: {col:C.bubble,spr:["1000001","0100010","0111110","1101011","0111110","1000001"]},
+  moeder:  {col:C.gold,  spr:["0011100","0111110","1101011","1111111","0101010","1000001"]}
+};
+
+/* ---- golven: oneven een monster, even een vaardigheid ---- */
+const WAVES=[
+ {type:'monster',key:'gewoon',naam:'Invaders',tekst:'Vang ze in een bubbel en knal die bubbel. Laat er geen ontsnappen naar het plafond.'},
+ {type:'feature',key:'magneet',naam:'Magneetbumper',tekst:'Je paddle vangt de bal vast. Schuif om te mikken, tik om te schieten. Zoek de magneet in vallende buit.'},
+ {type:'monster',key:'pantser',naam:'Pantser',tekst:'Draagt een harnas. De eerste tik breekt het harnas, pas de tweede vangt hem in een bubbel.'},
+ {type:'feature',key:'multi',naam:'Multibal',tekst:'Twee extra ballen tegelijk in het veld. Meer ballen, meer kettingen.'},
+ {type:'monster',key:'sproeier',naam:'Sproeier',tekst:'Schiet een waaier van drie lasers. Blijf bewegen.'},
+ {type:'feature',key:'vuur',naam:'Vuurbal',tekst:'Je bal boort dwars door invaders en bubbels heen zonder af te ketsen.'},
+ {type:'monster',key:'zinker',naam:'Zinker',tekst:'Te zwaar om te zweven: zijn bubbel zakt omlaag. Vang hem met je paddle voor dubbele punten. Mis je hem, dan keert hij terug.'},
+ {type:'feature',key:'schild',naam:'Vangnet',tekst:'Een net onder je paddle redt één gemiste bal. Zoek nieuwe netten in de buit.'},
+ {type:'monster',key:'flitser',naam:'Flitser',tekst:'Teleporteert om de paar tellen naar een andere plek. Let op het knipperen.'},
+ {type:'feature',key:'krimp',naam:'Breedpaddle',tekst:'Je paddle wordt een tijdje twee keer zo breed. Zoek hem in de buit.'},
+ {type:'monster',key:'moeder',naam:'Moederschip',tekst:'Vliegt langs het plafond en zet steeds nieuwe invaders uit. Zes treffers en hij is weg.'}
+];
+const FEATURE_INFO={magneet:{col:C.candy,l:'M'},multi:{col:C.lime,l:'3'},vuur:{col:C.orange,l:'F'},schild:{col:C.bubble,l:'N'},krimp:{col:C.violet,l:'W'}};
+
+let W=0,H=0,S=1,dpr=1;
+function resize(){
+  const r=cv.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);
+  W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  S=Math.min(W/400,H/720);if(S<.7)S=.7;
+  if(paddle){paddle.y=padY();}
+}
+addEventListener('resize',resize);
+
+let best=0;try{best=+localStorage.getItem('bubbelbende-best')||0}catch(e){}
+$('bestLine').textContent='Beste score: '+best;
+
+/* geluid */
+let ac=null;
+function beep(f,d=.07,type='square',v=.05){
+  if(!ac)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.6,t+d);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d);
+}
+
+/* vaste tempo's, nergens afhankelijk van de golf */
+const BALL=380,FLEET=26,BUB_RISE=42,SHOT=170,DIVE=100,SHOOT_GAP=1.4;
+
+let state='menu',paddle=null,balls=[],invaders=[],bubbles=[],divers=[],shots=[],loot=[],parts=[],pops=[],boss=null;
+const MAXLIVES=5,LIFE_STEP=10000;
+let lostThisWave=false,nextLife=LIFE_STEP,lastHeart=0;
+let score=0,lives=3,wave=1,combo=1,shake=0,fleet={dir:1,t:0},shootT=0,stars=[];
+let monsters=[],features=[],fx={magneet:0,vuur:0,krimp:0,schild:0};
+
+function makeStars(){stars=[];for(let i=0;i<60;i++)stars.push({x:Math.random(),y:Math.random(),s:Math.random()*1.6+.3,v:Math.random()*.02+.005});}
+function waveInfo(n){return WAVES[n-1]||{type:'remix',naam:'Remix',tekst:''};}
+function startBalls(){return wave<=WAVES.length?1:Math.min(3,1+Math.floor((wave-WAVES.length+1)/2));}
+
+function newGame(){
+  score=0;lives=3;wave=1;combo=1;nextLife=LIFE_STEP;monsters=[];features=[];fx={magneet:0,vuur:0,krimp:0,schild:0};
+  paddle={x:W/2,y:padY(),base:84,h:14*S,tx:W/2};
+  showIntro();
+}
+function padY(){return H-Math.max(150*S,H*.2);}
+function pw(){return paddle.base*S*(fx.krimp>0?2:1);}
+
+function showIntro(){
+  const w=waveInfo(wave);
+  if(w.type==='monster'&&!monsters.includes(w.key))monsters.push(w.key);
+  if(w.type==='feature'&&!features.includes(w.key))features.push(w.key);
+  $('introWave').textContent='Golf '+wave;
+  const tag=$('introTag');
+  tag.className='tag '+w.type;
+  tag.textContent=w.type==='monster'?'Nieuw monster':w.type==='feature'?'Nieuwe vaardigheid':'Alles door elkaar';
+  $('introName').textContent=w.naam;
+  if(w.type==='remix'){
+    const nb=startBalls();
+    $('introText').textContent='Alle monsters en vaardigheden door elkaar, met een extra rij. Je begint met '+nb+(nb>1?' ballen.':' bal.');
+  } else $('introText').textContent=w.tekst;
+  drawIntroArt(w);
+  state='intro';$('intro').hidden=false;
+}
+function drawIntroArt(w){
+  const c=$('introArt'),g=c.getContext('2d');g.clearRect(0,0,240,180);
+  if(w.type==='feature'){
+    const f=FEATURE_INFO[w.key];g.beginPath();g.arc(120,90,56,0,Math.PI*2);g.fillStyle=f.col;g.fill();
+    g.fillStyle=C.night;g.font='64px Bungee, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(f.l,120,96);
+  } else {
+    const keys=w.type==='remix'?monsters.slice(0,5):[w.key];
+    const sz=keys.length>1?44:110,gap=sz+6,ox=120-(keys.length-1)*gap/2;
+    keys.forEach((k,i)=>sprite(g,ox+i*gap,90,MON[k],sz,0));
+  }
+}
+function sprite(g,x,y,m,sz,frame){
+  const s=m.spr,px=sz/7;g.fillStyle=m.col;
+  for(let r=0;r<s.length;r++)for(let c=0;c<7;c++){
+    let on=s[r][c]==='1';if(r===s.length-1&&frame)on=s[r][6-c]==='1';
+    if(on)g.fillRect(x-sz/2+c*px,y-s.length*px/2+r*px,px+.5,px+.5);
+  }
+}
+
+function startWave(){
+  $('intro').hidden=true;
+  balls=[];bubbles=[];divers=[];shots=[];loot=[];boss=null;lostThisWave=false;
+  const w=waveInfo(wave);
+  const pool=monsters.filter(k=>k!=='moeder');
+  const remix=w.type==='remix';
+  const rows=Math.min(3+Math.floor((wave-1)/3)+(remix?1:0),6),cols=6;
+  const gx=46*S,gy=38*S,ox=(W-(cols-1)*gx)/2,oy=100*S;
+  const newest=w.type==='monster'&&w.key!=='moeder'?w.key:null;
+  for(let r=0;r<rows;r++){
+    let kind;
+    if(newest&&r<2)kind=newest;
+    else kind=remix?pool[Math.floor(Math.random()*pool.length)]:pool[(r+wave)%pool.length];
+    for(let c=0;c<cols;c++){
+      const k=remix&&Math.random()<.3?pool[Math.floor(Math.random()*pool.length)]:kind;
+      invaders.push(mkInv(ox+c*gx,oy+r*gy,k,c));
+    }
+  }
+  if(monsters.includes('moeder')&&(w.key==='moeder'||(remix&&wave%2===0)))
+    boss={x:W/2,y:78*S,dir:1,hp:6,spawn:4,hit:0};
+  fleet={dir:1,t:0};shootT=1.5;
+  /* vaardigheid van deze golf meteen laten proberen */
+  if(w.type==='feature')grant(w.key,true);
+  resetBall();
+  state='play';
+}
+function mkInv(x,y,k,col){return{x,y,kind:k,col,hp:MON[k].hp||1,blink:2+Math.random()*2,flash:0};}
+
+function resetBall(){
+  balls=[];const n=startBalls();
+  for(let i=0;i<n;i++)balls.push({x:paddle.x,y:paddle.y,vx:0,vy:0,r:7*S,stuck:true,off:(i-(n-1)/2)*16*S,hold:0,trail:[]});
+  combo=1;
+}
+function launchBall(b){
+  b.stuck=false;b.hold=0;const off=Math.max(-1,Math.min(1,b.off/(pw()/2)));
+  const a=-Math.PI/2+off*0.9+(Math.random()-.5)*.15;
+  b.vx=Math.cos(a)*BALL*S;b.vy=Math.sin(a)*BALL*S;beep(520,.06);
+}
+function launch(){for(const b of balls)if(b.stuck)launchBall(b);}
+function grant(k,intro){
+  if(k==='magneet')fx.magneet=12;
+  if(k==='vuur')fx.vuur=8;
+  if(k==='krimp')fx.krimp=12;
+  if(k==='schild')fx.schild=1;
+  if(k==='multi'){
+    if(intro){fx.multiPending=true;return;}
+    spawnMulti();
+  }
+}
+function spawnMulti(){
+  const src=balls.find(b=>!b.stuck)||balls[0];if(!src)return;
+  for(const a of[-.5,.5]){
+    const sp=BALL*S,base=Math.atan2(src.vy||-1,src.vx||0)+a;
+    balls.push({x:src.x,y:src.y,vx:Math.cos(base)*sp,vy:-Math.abs(Math.sin(base)*sp),r:7*S,stuck:false,off:0,hold:0,trail:[]});
+  }
+}
+
+/* input */
+let pDown=null;
+/* touch: relatief slepen, zoals een trackpad. Je vinger mag overal staan, de paddle volgt de beweging */
+const GAIN=1.4;
+cv.addEventListener('pointerdown',e=>{
+  pDown={x:e.clientX,t:performance.now(),lastX:e.clientX};
+  try{cv.setPointerCapture(e.pointerId)}catch(_){}
+  if(e.pointerType==='mouse')movePaddle(e);
+});
+cv.addEventListener('pointermove',e=>{
+  if(!paddle)return;
+  if(e.pointerType==='mouse'){movePaddle(e);return;}
+  if(!pDown)return;
+  paddle.tx+= (e.clientX-pDown.lastX)*GAIN;pDown.lastX=e.clientX;
+  const PW=pw();paddle.tx=Math.max(PW/2,Math.min(W-PW/2,paddle.tx));
+});
+cv.addEventListener('pointercancel',()=>{pDown=null;});
+cv.addEventListener('pointerup',e=>{
+  if(pDown&&state==='play'&&Math.abs(e.clientX-pDown.x)<14&&performance.now()-pDown.t<350)doLaunch();
+  pDown=null;
+});
+function doLaunch(){
+  const hadStuck=balls.some(b=>b.stuck);launch();
+  if(hadStuck&&fx.multiPending){fx.multiPending=false;setTimeout(spawnMulti,150);}
+}
+function movePaddle(e){if(!paddle)return;const r=cv.getBoundingClientRect();paddle.tx=e.clientX-r.left;}
+addEventListener('keydown',e=>{
+  if(!paddle||state!=='play')return;
+  if(e.key==='ArrowLeft')paddle.tx-=60*S;if(e.key==='ArrowRight')paddle.tx+=60*S;if(e.key===' ')doLaunch();
+});
+
+function burst(x,y,col,n=10){if(reduce)n=Math.ceil(n/2);for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(60+Math.random()*160)*S;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.6,col});}}
+function popText(x,y,txt,col){pops.push({x,y,txt,col,life:1});}
+
+function hitInv(v){
+  if(v.hp>1){v.hp--;v.flash=.2;burst(v.x,v.y,C.orange,8);beep(180,.06,'square');score+=5*combo;return false;}
+  invaders.splice(invaders.indexOf(v),1);trap(v);return true;
+}
+function trap(inv){
+  const sink=inv.kind==='zinker';
+  bubbles.push({x:inv.x,y:inv.y,r:20*S,vy:(sink?36:-BUB_RISE)*S,ph:Math.random()*6,kind:inv.kind,age:0,sink});
+  score+=10*combo;beep(330,.09,'triangle');burst(inv.x,inv.y,MON[inv.kind].col,6);
+}
+function popBubble(b,chain,mult=1){
+  const i=bubbles.indexOf(b);if(i<0)return;bubbles.splice(i,1);
+  const pts=100*combo*(chain+1)*mult;score+=pts;popText(b.x,b.y,'+'+pts,chain||mult>1?C.lime:C.ink);
+  burst(b.x,b.y,C.bubble,14);beep(700+chain*120,.08,'sine',.06);shake=Math.max(shake,4+chain*2);
+  const now=performance.now();
+  if(chain===3&&now-lastHeart>1500){
+    lastHeart=now;loot.push({x:b.x,y:b.y,vy:40*S,kind:'hart'});popText(b.x,b.y-24*S,'ketting x4',C.candy);
+  } else if(Math.random()<.03){
+    loot.push({x:b.x,y:b.y,vy:50*S,kind:'hart'});
+  } else if(Math.random()<.4){
+    const opts=['fruit','fruit',...features];
+    loot.push({x:b.x,y:b.y,vy:50*S,kind:opts[Math.floor(Math.random()*opts.length)]});
+  }
+  for(const o of bubbles.slice())if(Math.hypot(o.x-b.x,o.y-b.y)<b.r+o.r+8*S)setTimeout(()=>popBubble(o,chain+1),70);
+  combo++;
+}
+function addLife(x,y,why){
+  if(lives<MAXLIVES){lives++;popText(x,y,why?why+' +1 leven':'+1 leven',C.candy);}
+  else{score+=1000;popText(x,y,'levens vol +1000',C.candy);}
+  beep(523,.1,'triangle',.06);setTimeout(()=>beep(784,.14,'triangle',.06),110);
+  burst(x,y,C.candy,16);
+}
+function heart(g,x,y,s,col){
+  g.fillStyle=col;g.beginPath();g.moveTo(x,y+s*.9);
+  g.bezierCurveTo(x-s*1.4,y,x-s*.9,y-s*1.1,x,y-s*.35);
+  g.bezierCurveTo(x+s*.9,y-s*1.1,x+s*1.4,y,x,y+s*.9);g.fill();
+}
+function loseLife(){
+  lives--;lostThisWave=true;shake=14;beep(110,.35,'sawtooth',.07);burst(paddle.x,paddle.y,C.candy,20);
+  if(lives<=0){gameOver();return;}
+  shots=[];divers=[];resetBall();
+}
+function gameOver(){
+  state='over';
+  if(score>best){best=score;try{localStorage.setItem('bubbelbende-best',best)}catch(e){}$('overMsg').textContent='Nieuwe beste score. Golf '+wave+' gehaald.';}
+  else $('overMsg').textContent='Beste score: '+best+'. Golf '+wave+' gehaald.';
+  $('finalScore').textContent=score;$('over').hidden=false;$('bestLine').textContent='Beste score: '+best;
+}
+
+function circRect(cx,cy,r,x,y,w,h){const nx=Math.max(x,Math.min(cx,x+w)),ny=Math.max(y,Math.min(cy,y+h));return (cx-nx)**2+(cy-ny)**2<r*r;}
+
+function update(dt){
+  for(const s of stars){s.y+=s.v*dt;if(s.y>1)s.y-=1;}
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=30*S*dt;p.life-=dt;}pops=pops.filter(p=>p.life>0);
+  shake*=.88;
+  if(state!=='play')return;
+
+  if(score>=nextLife){addLife(W/2,H*.45,nextLife.toLocaleString('nl-NL')+' punten:');nextLife+=LIFE_STEP;}
+  for(const k of['magneet','vuur','krimp'])if(fx[k]>0)fx[k]=Math.max(0,fx[k]-dt);
+  const PW=pw();
+  paddle.tx=Math.max(PW/2,Math.min(W-PW/2,paddle.tx));
+  paddle.x+=(paddle.tx-paddle.x)*Math.min(1,dt*18);
+
+  /* vloot, vast tempo */
+  let edge=false;
+  for(const v of invaders){v.x+=fleet.dir*FLEET*S*dt;if(v.x<18*S||v.x>W-18*S)edge=true;}
+  fleet.t+=dt;
+  if(edge){fleet.dir*=-1;for(const v of invaders){v.y+=14*S;v.x=Math.max(18*S,Math.min(W-18*S,v.x));}}
+  for(const v of invaders){
+    if(v.flash>0)v.flash-=dt;
+    if(v.kind==='flitser'){
+      v.blink-=dt;
+      if(v.blink<=0){
+        burst(v.x,v.y,C.bubble,6);
+        const ys=invaders.map(o=>o.y);const top=Math.min(...ys),bot=Math.max(...ys);
+        v.x=30*S+Math.random()*(W-60*S);v.y=top+Math.random()*Math.max(1,bot-top);
+        v.blink=2.5+Math.random()*1.5;burst(v.x,v.y,C.bubble,6);beep(880,.05,'triangle',.03);
+      }
+    }
+    if(v.y>paddle.y-30*S){gameOver();return;}
+  }
+
+  /* moederschip */
+  if(boss){
+    boss.x+=boss.dir*55*S*dt;if(boss.x<40*S||boss.x>W-40*S)boss.dir*=-1;
+    boss.hit=Math.max(0,boss.hit-dt);boss.spawn-=dt;
+    if(boss.spawn<=0){
+      boss.spawn=5;const pool=monsters.filter(k=>k!=='moeder');
+      const k=pool[Math.floor(Math.random()*pool.length)];
+      invaders.push(mkInv(boss.x,boss.y+30*S,k,Math.floor(Math.random()*6)));beep(240,.1,'triangle');
+    }
+  }
+
+  /* schieten, vast ritme */
+  shootT-=dt;
+  if(shootT<=0&&invaders.length){
+    const cols={};for(const v of invaders)if(!cols[v.col]||v.y>cols[v.col].y)cols[v.col]=v;
+    const shooters=Object.values(cols),s=shooters[Math.floor(Math.random()*shooters.length)];
+    if(s.kind==='sproeier')for(const vx of[-70,0,70])shots.push({x:s.x,y:s.y+10*S,vx:vx*S,vy:SHOT*S,col:C.lime});
+    else shots.push({x:s.x,y:s.y+10*S,vx:0,vy:SHOT*S,col:C.candy});
+    shootT=SHOOT_GAP*(.6+Math.random()*.8);
+  }
+  for(const s of shots){s.x+=s.vx*dt;s.y+=s.vy*dt;}
+  for(const s of shots.slice()){
+    if(circRect(s.x,s.y,4*S,paddle.x-PW/2,paddle.y,PW,paddle.h)){shots.splice(shots.indexOf(s),1);loseLife();return;}
+  }
+  shots=shots.filter(s=>s.y<H+20&&s.x>-20&&s.x<W+20);
+
+  /* ballen */
+  const fire=fx.vuur>0;
+  for(const b of balls){
+    if(b.stuck){
+      b.x=paddle.x+b.off;b.y=paddle.y-b.r-2;
+      if(b.hold>0){b.hold-=dt;if(b.hold<=0)launchBall(b);}
+      continue;
+    }
+    const steps=3;for(let k=0;k<steps;k++){
+      b.x+=b.vx*dt/steps;b.y+=b.vy*dt/steps;
+      if(b.x<b.r){b.x=b.r;b.vx=Math.abs(b.vx);beep(260,.03);}
+      if(b.x>W-b.r){b.x=W-b.r;b.vx=-Math.abs(b.vx);beep(260,.03);}
+      if(b.y<b.r+50*S){b.y=b.r+50*S;b.vy=Math.abs(b.vy);beep(260,.03);}
+      if(b.vy>0&&circRect(b.x,b.y,b.r,paddle.x-PW/2,paddle.y,PW,paddle.h)){
+        combo=1;
+        if(fx.magneet>0){b.stuck=true;b.off=b.x-paddle.x;b.hold=3;b.vx=b.vy=0;beep(300,.08,'sine');break;}
+        const off=Math.max(-1,Math.min(1,(b.x-paddle.x)/(PW/2)));
+        const a=-Math.PI/2+off*0.95;b.vx=Math.cos(a)*BALL*S;b.vy=Math.sin(a)*BALL*S;b.y=paddle.y-b.r;
+        beep(440,.05);
+      }
+      if(boss&&Math.abs(b.x-boss.x)<34*S+b.r&&Math.abs(b.y-boss.y)<14*S+b.r){
+        boss.hp--;boss.hit=.2;b.vy=Math.abs(b.vy);burst(b.x,b.y,C.gold,10);beep(150,.1,'square');shake=6;
+        if(boss.hp<=0){const p=3000;score+=p;popText(boss.x,boss.y,'+'+p,C.gold);burst(boss.x,boss.y,C.gold,40);shake=16;loot.push({x:boss.x,y:boss.y,vy:40*S,kind:'hart'});boss=null;}
+      }
+      for(const v of invaders.slice()){
+        if(Math.abs(b.x-v.x)<14*S+b.r&&Math.abs(b.y-v.y)<11*S+b.r){
+          const dx=Math.abs(b.x-v.x)/14,dy=Math.abs(b.y-v.y)/11;
+          const gone=hitInv(v);
+          if(fire&&gone)continue;
+          if(dx>dy)b.vx=Math.sign(b.x-v.x)*Math.abs(b.vx);else b.vy=Math.sign(b.y-v.y)*Math.abs(b.vy);
+          break;
+        }
+      }
+      for(const d of divers.slice()){
+        if(Math.hypot(b.x-d.x,b.y-d.y)<14*S+b.r){divers.splice(divers.indexOf(d),1);trap(d);if(!fire)b.vy=-Math.abs(b.vy);}
+      }
+      for(const bb of bubbles){
+        const dx=b.x-bb.x,dy=b.y-bb.y,dd=Math.hypot(dx,dy)||1;
+        if(dd<bb.r+b.r){
+          if(!fire){const nx=dx/dd,ny=dy/dd,dot=b.vx*nx+b.vy*ny;b.vx-=2*dot*nx;b.vy-=2*dot*ny;}
+          popBubble(bb,0);break;
+        }
+      }
+    }
+    if(!b.stuck){
+      /* nooit vlakker dan ~35 graden, en altijd op vaste snelheid */
+      const sp=BALL*S,minVy=sp*0.57;
+      let vy=b.vy||-minVy;
+      if(Math.abs(vy)<minVy)vy=Math.sign(vy)*minVy;
+      const vx=Math.sign(b.vx||1)*Math.sqrt(Math.max(0,sp*sp-vy*vy));
+      const k=sp/Math.hypot(Math.min(Math.abs(b.vx),Math.abs(vx))*Math.sign(b.vx||1),vy);
+      b.vx=Math.min(Math.abs(b.vx),Math.abs(vx))*Math.sign(b.vx||1)*k;b.vy=vy*k;
+    }
+    b.trail.push({x:b.x,y:b.y});if(b.trail.length>10)b.trail.shift();
+    if(b.y>paddle.y+30*S&&fx.schild>0&&b.vy>0){fx.schild--;b.vy=-Math.abs(b.vy);popText(b.x,b.y-20*S,'gered',C.bubble);beep(600,.1,'triangle');}
+    if(b.y>H+20)b.dead=true;
+  }
+  if(balls.some(b=>b.dead)){balls=balls.filter(b=>!b.dead);if(!balls.length){loseLife();if(state!=='play')return;}}
+
+  /* bubbels */
+  for(const bb of bubbles.slice()){
+    bb.age+=dt;bb.y+=bb.vy*dt;bb.x+=Math.sin(bb.age*2+bb.ph)*20*S*dt;
+    bb.x=Math.max(bb.r,Math.min(W-bb.r,bb.x));
+    if(bb.sink){
+      if(circRect(bb.x,bb.y,bb.r,paddle.x-PW/2,paddle.y,PW,paddle.h)){popBubble(bb,0,2);continue;}
+      if(bb.y>H+bb.r){
+        bubbles.splice(bubbles.indexOf(bb),1);
+        const top=invaders.length?Math.min(...invaders.map(v=>v.y)):100*S;
+        invaders.push(mkInv(30*S+Math.random()*(W-60*S),Math.max(100*S,top),'zinker',Math.floor(Math.random()*6)));
+        popText(W/2,H-110*S,'zinker terug',C.violet);beep(200,.12,'sawtooth',.04);
+      }
+    } else if(bb.y<60*S){
+      bubbles.splice(bubbles.indexOf(bb),1);
+      divers.push({x:bb.x,y:bb.y,kind:bb.kind,vx:0,t:0});
+      popText(bb.x,bb.y+20*S,'ontsnapt!',C.candy);beep(200,.12,'sawtooth',.04);
+    }
+  }
+  for(const d of divers){
+    d.t+=dt;d.vx+=(Math.sign(paddle.x-d.x)*120*S-d.vx)*dt*1.5;d.x+=d.vx*dt;d.y+=DIVE*S*dt;
+  }
+  for(const d of divers.slice()){
+    if(circRect(d.x,d.y,12*S,paddle.x-PW/2,paddle.y,PW,paddle.h)){divers.splice(divers.indexOf(d),1);loseLife();return;}
+  }
+  divers=divers.filter(d=>d.y<H+30);
+
+  /* buit vangen */
+  for(const f of loot){f.y+=f.vy*dt;f.vy+=110*S*dt;}
+  for(const f of loot.slice()){
+    if(circRect(f.x,f.y,10*S,paddle.x-PW/2,paddle.y-4,PW,paddle.h+8)){
+      loot.splice(loot.indexOf(f),1);
+      if(f.kind==='hart'){addLife(f.x,f.y-14*S);}
+      else if(f.kind==='fruit'){const p=250;score+=p;popText(f.x,f.y-10,'+'+p,C.lime);beep(990,.07,'sine');}
+      else{grant(f.kind);popText(f.x,f.y-14*S,WAVES.find(w=>w.key===f.kind).naam.toLowerCase(),FEATURE_INFO[f.kind].col);beep(1200,.12,'triangle');}
+    }
+  }
+  loot=loot.filter(f=>f.y<H+20);
+
+  if(!invaders.length&&!bubbles.length&&!divers.length&&!boss){
+    score+=500;popText(W/2,H/2,'golf klaar +500',C.lime);
+    if(!lostThisWave)addLife(W/2,H/2+30*S,'foutloos:');beep(660,.2,'triangle');
+    wave++;state='between';setTimeout(showIntro,900);
+  }
+}
+
+/* tekenen */
+function draw(){
+  ctx.save();
+  ctx.fillStyle=C.night;ctx.fillRect(0,0,W,H);
+  if(shake>.5&&!reduce)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  for(const s of stars){ctx.fillStyle='rgba(169,155,214,'+(.25+s.s/3)+')';ctx.fillRect(s.x*W,s.y*H,s.s,s.s);}
+  ctx.strokeStyle=C.deep;ctx.lineWidth=2;ctx.setLineDash([6,8]);
+  ctx.beginPath();ctx.moveTo(0,60*S);ctx.lineTo(W,60*S);ctx.stroke();ctx.setLineDash([]);
+  if(!paddle){ctx.restore();return;}
+  const PW=pw(),fr=Math.floor(fleet.t*3)%2;
+
+  if(boss){
+    ctx.save();ctx.translate(boss.x,boss.y);
+    ctx.fillStyle=boss.hit>0?C.ink:C.gold;
+    ctx.beginPath();ctx.ellipse(0,4*S,36*S,11*S,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(0,-4*S,16*S,11*S,0,Math.PI,0);ctx.fill();
+    ctx.fillStyle=C.night;for(let i=-2;i<=2;i++){ctx.fillRect(i*12*S-3*S,2*S,6*S,4*S);}
+    for(let i=0;i<6;i++){ctx.fillStyle=i<boss.hp?C.candy:C.deep;ctx.fillRect(-30*S+i*10.5*S,20*S,8*S,3*S);}
+    ctx.restore();
+  }
+  for(const v of invaders){
+    const flick=v.kind==='flitser'&&v.blink<.6&&Math.floor(v.blink*16)%2;
+    if(flick)continue;
+    sprite(ctx,v.x,v.y,v.flash>0?{col:C.ink,spr:MON[v.kind].spr}:MON[v.kind],28*S,fr);
+    if(v.hp>1){ctx.strokeStyle=C.orange;ctx.lineWidth=2*S;ctx.strokeRect(v.x-18*S,v.y-15*S,36*S,30*S);}
+  }
+  for(const d of divers){ctx.save();ctx.translate(d.x,d.y);ctx.rotate(Math.sin(d.t*8)*.3);sprite(ctx,0,0,MON[d.kind],30*S,1);ctx.restore();}
+
+  for(const bb of bubbles){
+    sprite(ctx,bb.x,bb.y,MON[bb.kind],20*S,0);
+    const warn=!bb.sink&&bb.y<120*S;
+    ctx.beginPath();ctx.arc(bb.x,bb.y,bb.r,0,Math.PI*2);
+    ctx.fillStyle=bb.sink?'rgba(177,140,255,.18)':'rgba(126,231,255,.12)';ctx.fill();
+    ctx.lineWidth=2.5*S;ctx.strokeStyle=warn&&Math.floor(bb.age*8)%2?C.candy:(bb.sink?C.violet:C.bubble);ctx.stroke();
+    ctx.beginPath();ctx.arc(bb.x-bb.r*.38,bb.y-bb.r*.38,bb.r*.18,0,Math.PI*2);ctx.fillStyle=C.ink;ctx.fill();
+  }
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const f of loot){
+    if(f.kind==='hart'){
+      const pulse=1+Math.sin(fleet.t*10)*.12;heart(ctx,f.x,f.y,11*S*pulse,C.candy);
+    } else if(f.kind==='fruit'){
+      ctx.beginPath();ctx.arc(f.x,f.y,9*S,0,Math.PI*2);ctx.fillStyle=C.candy;ctx.fill();
+      ctx.fillStyle=C.lime;ctx.fillRect(f.x-1.5*S,f.y-14*S,3*S,6*S);
+    } else {
+      const fi=FEATURE_INFO[f.kind];
+      ctx.beginPath();ctx.roundRect(f.x-12*S,f.y-12*S,24*S,24*S,6*S);ctx.fillStyle=fi.col;ctx.fill();
+      ctx.fillStyle=C.night;ctx.font=(14*S)+'px Bungee, sans-serif';ctx.fillText(fi.l,f.x,f.y+1*S);
+    }
+  }
+  for(const s of shots){ctx.fillStyle=s.col;ctx.fillRect(s.x-2*S,s.y-8*S,4*S,12*S);}
+
+  const fire=fx.vuur>0;
+  for(const b of balls){
+    b.trail.forEach((t,i)=>{ctx.beginPath();ctx.arc(t.x,t.y,b.r*(i/b.trail.length)*(fire?1.2:.8),0,Math.PI*2);
+      ctx.fillStyle=fire?'rgba(255,179,71,'+(i/b.trail.length*.6)+')':'rgba(198,255,77,'+(i/b.trail.length*.35)+')';ctx.fill();});
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fillStyle=fire?C.orange:C.lime;ctx.fill();
+  }
+  /* paddle */
+  const px=paddle.x-PW/2;ctx.fillStyle=C.ink;
+  ctx.beginPath();ctx.roundRect(px,paddle.y,PW,paddle.h,paddle.h/2);ctx.fill();
+  ctx.fillStyle=C.candy;ctx.fillRect(paddle.x-PW*.15,paddle.y+paddle.h*.35,PW*.3,paddle.h*.3);
+  if(fx.magneet>0){
+    ctx.strokeStyle=C.candy;ctx.lineWidth=2*S;
+    for(let i=0;i<3;i++){const t=(fleet.t*1.5+i/3)%1;ctx.globalAlpha=1-t;
+      ctx.beginPath();ctx.moveTo(px,paddle.y-4*S-t*16*S);ctx.lineTo(px+PW,paddle.y-4*S-t*16*S);ctx.stroke();}
+    ctx.globalAlpha=1;
+  }
+  if(fx.schild>0){ctx.strokeStyle=C.bubble;ctx.lineWidth=2*S;ctx.setLineDash([3*S,5*S]);
+    ctx.beginPath();ctx.moveTo(0,paddle.y+34*S);ctx.lineTo(W,paddle.y+34*S);ctx.stroke();ctx.setLineDash([]);}
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life/.6);ctx.fillStyle=p.col;ctx.fillRect(p.x-2,p.y-2,4,4);}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.min(1,p.life*2);ctx.font=(16*S)+'px Bungee, sans-serif';ctx.fillStyle=p.col;ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  /* actieve vaardigheden onderin */
+  const act=[];
+  if(fx.magneet>0)act.push(['magneet',Math.ceil(fx.magneet)+'s']);
+  if(fx.vuur>0)act.push(['vuur',Math.ceil(fx.vuur)+'s']);
+  if(fx.krimp>0)act.push(['krimp',Math.ceil(fx.krimp)+'s']);
+  if(fx.schild>0)act.push(['schild','x'+fx.schild]);
+  ctx.font=(11*S)+'px "Martian Mono", monospace';
+  act.forEach(([k,t],i)=>{
+    const x=W/2+(i-(act.length-1)/2)*70*S,y=paddle.y+56*S;
+    ctx.fillStyle=FEATURE_INFO[k].col;ctx.fillRect(x-30*S,y-8*S,10*S,16*S);
+    ctx.fillStyle=C.ink;ctx.textAlign='left';ctx.fillText(FEATURE_INFO[k].l+' '+t,x-16*S,y);
+  });
+  ctx.textAlign='center';
+  /* bedieningszone onder de paddle */
+  const zt=paddle.y+76*S,zh=H-zt-10*S;
+  if(zh>30*S){
+    ctx.fillStyle='rgba(28,17,71,.7)';ctx.beginPath();ctx.roundRect(10*S,zt,W-20*S,zh,16*S);ctx.fill();
+    const ty=zt+zh/2;ctx.strokeStyle=C.deep;ctx.lineWidth=4*S;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(30*S,ty);ctx.lineTo(W-30*S,ty);ctx.stroke();
+    ctx.fillStyle=pDown?C.lime:C.muted;ctx.beginPath();ctx.roundRect(paddle.x-PW/2,ty-4*S,PW,8*S,4*S);ctx.fill();
+    if(state==='play'&&balls.some(b=>b.stuck)){ctx.font=(11*S)+'px "Martian Mono", monospace';ctx.fillStyle=C.muted;
+      ctx.fillText('schuif hier, tik om te lanceren',W/2,ty+(zh>70*S?22*S:0)+ (zh>70*S?0:-16*S));}
+  }
+  ctx.restore();
+}
+
+function hud(){
+  $('score').textContent=score;$('wave').textContent=wave;$('combo').textContent='x'+combo;
+  const L=$('lives'),n=Math.max(3,lives);if(L.childElementCount!==n){L.innerHTML='<i></i>'.repeat(n);}
+  [...L.children].forEach((e,i)=>e.className=i<lives?'':'off');
+}
+
+let last=performance.now(),paused=false;
+function loop(t){
+  const dt=Math.min(.033,(t-last)/1000);last=t;
+  if(!paused)update(dt);draw();hud();requestAnimationFrame(loop);
+}
+document.addEventListener('visibilitychange',()=>{paused=document.hidden;last=performance.now();});
+
+async function begin(){
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
+  try{await navigator.wakeLock?.request('screen');}catch(e){}
+  $('menu').hidden=true;$('over').hidden=true;newGame();
+}
+$('startBtn').onclick=begin;$('againBtn').onclick=begin;
+$('goBtn').onclick=startWave;
+
+resize();makeStars();requestAnimationFrame(loop);
+})();
+
+</script>
+</body>
+</html>
