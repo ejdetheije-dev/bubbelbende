@@ -60,7 +60,9 @@ button:focus-visible{outline:3px solid var(--bubble);outline-offset:4px}
 .small{font-size:11px;color:var(--muted);letter-spacing:.08em}
 .big{font-family:var(--display);font-size:44px;color:var(--lime)}
 </style>
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}/* alles wat de host aan body toevoegt (badges, banners) verbergen */
+body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:none!important}
+</style>
 </head>
 <body>
 
@@ -644,5 +646,11 @@ resize();makeStars();requestAnimationFrame(loop);
 
 </script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
+<script>
+/* verwijder later toegevoegde badges of banners van de host */
+(()=>{const keep=n=>n.id==="wrap"||n.tagName==="SCRIPT"||n.tagName==="STYLE";
+const clean=()=>{for(const n of [...document.body.children])if(!keep(n))n.remove();};
+new MutationObserver(clean).observe(document.body,{childList:true});addEventListener("load",clean);clean();})();
+</script>
 </body>
 </html>
