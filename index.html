@@ -85,8 +85,8 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
       <b>Raak</b><span>Een invader die je raakt, zit gevangen in een bubbel en zweeft omhoog.</span>
       <b>Knal</b><span>Raak de bubbel opnieuw. Bubbels die tegen elkaar zitten knallen mee.</span>
       <b>Combo</b><span>Elke knal zonder dat de bal de paddle raakt verhoogt je multiplier.</span>
-      <b>Laser</b><span>Een laser kost geen leven maar verdooft je paddle even. Alleen een gemiste bal of een duikende invader kost een leven.</span>
-      <b>Leven</b><span>Extra leven bij elke 10.000 punten, een foutloze golf, een ketting van 4 bubbels of een vallend hartje.</span>
+      <b>Laser</b><span>Een laser verdooft je paddle en maakt hem kleiner. De derde treffer kost een leven. Elke golf begint je paddle weer heel.</span>
+      <b>Leven</b><span>Extra leven bij elke 25.000 punten, een foutloze golf, een ketting van 5 bubbels of een zeldzaam hartje. Maximaal 4.</span>
       <b>Nieuw</b><span>Het tempo blijft gelijk. Elke golf brengt een nieuw monster of een nieuwe vaardigheid.</span>
     </div>
     <button id="startBtn">Spelen</button>
@@ -188,14 +188,15 @@ function beep(f,d=.07,type='square',v=.05){
 const BALL=380,FLEET=26,BUB_RISE=42,SHOT=170,DIVE=100,SHOOT_GAP=1.4;
 
 let state='menu',paddle=null,balls=[],invaders=[],bubbles=[],divers=[],shots=[],loot=[],parts=[],pops=[],boss=null;
-const MAXLIVES=5,LIFE_STEP=10000;
-let lostThisWave=false,nextLife=LIFE_STEP,lastHeart=0,stun=0,grace=0;
+const MAXLIVES=4,LIFE_STEP=25000;
+let lostThisWave=false,nextLife=LIFE_STEP,lastHeart=0,stun=0,grace=0,dmg=0;
 let score=0,lives=3,wave=1,combo=1,shake=0,fleet={dir:1,t:0},shootT=0,stars=[];
 let monsters=[],features=[],fx={magneet:0,vuur:0,krimp:0,schild:0};
 
 function makeStars(){stars=[];for(let i=0;i<60;i++)stars.push({x:Math.random(),y:Math.random(),s:Math.random()*1.6+.3,v:Math.random()*.02+.005});}
 function waveInfo(n){return WAVES[n-1]||{type:'remix',naam:'Remix',tekst:''};}
-function startBalls(){return wave<=WAVES.length?1:Math.min(3,1+Math.floor((wave-WAVES.length+1)/2));}
+function startBalls(){return 1;}
+function volley(){return wave<=WAVES.length?1:Math.min(3,1+Math.floor((wave-WAVES.length)/2));}
 
 function newGame(){
   score=0;lives=3;wave=1;combo=1;nextLife=LIFE_STEP;monsters=[];features=[];fx={magneet:0,vuur:0,krimp:0,schild:0};
@@ -203,7 +204,7 @@ function newGame(){
   showIntro();
 }
 function padY(){return H-Math.max(150*S,H*.2);}
-function pw(){return paddle.base*S*(fx.krimp>0?2:1);}
+function pw(){return paddle.base*S*(fx.krimp>0?2:1)*(1-dmg*.18);}
 
 function showIntro(){
   const w=waveInfo(wave);
@@ -215,8 +216,7 @@ function showIntro(){
   tag.textContent=w.type==='monster'?'Nieuw monster':w.type==='feature'?'Nieuwe vaardigheid':'Alles door elkaar';
   $('introName').textContent=w.naam;
   if(w.type==='remix'){
-    const nb=startBalls();
-    $('introText').textContent='Alle monsters en vaardigheden door elkaar, met een extra rij. Je begint met '+nb+(nb>1?' ballen.':' bal.');
+    const v=volley();$('introText').textContent='Alle monsters en vaardigheden door elkaar, met een extra rij.'+(v>1?' Er schieten '+v+' invaders tegelijk.':'');
   } else $('introText').textContent=w.tekst;
   drawIntroArt(w);
   state='intro';$('intro').hidden=false;
@@ -242,7 +242,7 @@ function sprite(g,x,y,m,sz,frame){
 
 function startWave(){
   $('intro').hidden=true;
-  balls=[];bubbles=[];divers=[];shots=[];loot=[];boss=null;lostThisWave=false;stun=0;grace=0;
+  balls=[];bubbles=[];divers=[];shots=[];loot=[];boss=null;lostThisWave=false;stun=0;grace=0;dmg=0;
   const w=waveInfo(wave);
   const pool=monsters.filter(k=>k!=='moeder');
   const remix=w.type==='remix';
@@ -345,9 +345,9 @@ function popBubble(b,chain,mult=1){
   const pts=100*combo*(chain+1)*mult;score+=pts;popText(b.x,b.y,'+'+pts,chain||mult>1?C.lime:C.ink);
   burst(b.x,b.y,C.bubble,14);beep(700+chain*120,.08,'sine',.06);shake=Math.max(shake,4+chain*2);
   const now=performance.now();
-  if(chain===3&&now-lastHeart>1500){
-    lastHeart=now;loot.push({x:b.x,y:b.y,vy:40*S,kind:'hart'});popText(b.x,b.y-24*S,'ketting x4',C.candy);
-  } else if(Math.random()<.03){
+  if(chain===4&&now-lastHeart>1500){
+    lastHeart=now;loot.push({x:b.x,y:b.y,vy:40*S,kind:'hart'});popText(b.x,b.y-24*S,'ketting x5',C.candy);
+  } else if(Math.random()<.015){
     loot.push({x:b.x,y:b.y,vy:50*S,kind:'hart'});
   } else if(Math.random()<.4){
     const opts=['fruit','fruit',...features];
@@ -368,7 +368,7 @@ function heart(g,x,y,s,col){
   g.bezierCurveTo(x+s*.9,y-s*1.1,x+s*1.4,y,x,y+s*.9);g.fill();
 }
 function loseLife(){
-  lives--;lostThisWave=true;grace=2.5;stun=0;shake=14;beep(110,.35,'sawtooth',.07);burst(paddle.x,paddle.y,C.candy,20);
+  lives--;lostThisWave=true;grace=1.5;stun=0;dmg=0;shake=14;beep(110,.35,'sawtooth',.07);burst(paddle.x,paddle.y,C.candy,20);
   if(lives<=0){gameOver();return;}
   shots=[];divers=[];resetBall();
 }
@@ -433,16 +433,20 @@ function update(dt){
   if(balls.some(b=>!b.stuck))shootT-=dt;
   if(shootT<=0&&invaders.length){
     const cols={};for(const v of invaders)if(!cols[v.col]||v.y>cols[v.col].y)cols[v.col]=v;
-    const shooters=Object.values(cols),s=shooters[Math.floor(Math.random()*shooters.length)];
-    if(s.kind==='sproeier')for(const vx of[-70,0,70])shots.push({x:s.x,y:s.y+10*S,vx:vx*S,vy:SHOT*S,col:C.lime});
-    else shots.push({x:s.x,y:s.y+10*S,vx:0,vy:SHOT*S,col:C.candy});
+    const shooters=Object.values(cols).sort(()=>Math.random()-.5).slice(0,volley());
+    for(const s of shooters){
+      if(s.kind==='sproeier')for(const vx of[-70,0,70])shots.push({x:s.x,y:s.y+10*S,vx:vx*S,vy:SHOT*S,col:C.lime});
+      else shots.push({x:s.x,y:s.y+10*S,vx:0,vy:SHOT*S,col:C.candy});
+    }
     shootT=SHOOT_GAP*(.6+Math.random()*.8);
   }
   for(const s of shots){s.x+=s.vx*dt;s.y+=s.vy*dt;}
   for(const s of shots.slice()){
     if(circRect(s.x,s.y,4*S,paddle.x-PW/2,paddle.y,PW,paddle.h)){
       shots.splice(shots.indexOf(s),1);
-      if(grace<=0){stun=1.2;combo=1;shake=8;burst(s.x,s.y,C.candy,10);popText(paddle.x,paddle.y-24*S,'verdoofd',C.candy);beep(150,.2,'square',.05);}
+      if(grace<=0){dmg++;combo=1;shake=8;burst(s.x,s.y,C.candy,10);beep(150,.2,'square',.05);
+        if(dmg>=3){popText(paddle.x,paddle.y-24*S,'paddle kapot',C.candy);loseLife();return;}
+        stun=0.8;popText(paddle.x,paddle.y-24*S,'schade '+dmg+'/3',C.candy);}
     }
   }
   shots=shots.filter(s=>s.y<H+20&&s.x>-20&&s.x<W+20);
