@@ -1,10 +1,10 @@
 // Stuurt een Pushover-bericht als iemand anders Bubbelbende echt speelt.
 // Zet in Netlify twee omgevingsvariabelen: PUSHOVER_TOKEN (app-token) en PUSHOVER_USER (jouw user key).
 export default async (req, context) => {
-  if (req.method !== 'POST') return new Response('Alleen POST', { status: 405 });
-
   const token = process.env.PUSHOVER_TOKEN;
   const user = process.env.PUSHOVER_USER;
+  if (req.method === 'GET') return Response.json({ token: (token || '').length, user: (user || '').length });
+  if (req.method !== 'POST') return new Response('Alleen POST', { status: 405 });
   if (!token || !user) return new Response('Pushover niet ingesteld', { status: 500 });
 
   let d = {};
