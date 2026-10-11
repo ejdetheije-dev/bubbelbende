@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#06073a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,12 +11,14 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Bubbelbende</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
 <style>
 /* Layout: één scherm, canvas vult alles. Atari 2600-wereld: zwart scherm, grove pixels, vaste NTSC-achtige kleurbanden, scanlines. */
 :root{
-  --night:#000000;
-  --deep:#2a2a2a;
+  --night:#06073a;
+  --deep:#1a1f6e;
+  --shadow:#1f2bd8;
+  --shadow2:#0b1490;
   --red:#d84a3c;
   --orange:#d6833a;
   --yellow:#e0c84a;
@@ -26,12 +28,12 @@
   --ink:#ececec;
   --muted:#8c8c8c;
   --wood:#6b3f1f;
-  --display:"Silkscreen","Courier New",monospace;
-  --mono:"VT323","Courier New",monospace;
+  --display:"Russo One","Arial Black",sans-serif;
+  --mono:"Russo One","Arial Black",sans-serif;
   color-scheme:dark;
 }
 html,body{height:100%;}
-body{background:var(--night);color:var(--ink);font-family:var(--mono);font-size:18px;overflow:hidden;
+body{background:var(--night);color:var(--ink);font-family:var(--mono);font-size:15px;overflow:hidden;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
 #wrap{position:relative;height:100%;width:100%;max-width:560px;margin:0 auto;}
 #wrap::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:9;
@@ -39,8 +41,8 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);font-size:
 canvas{display:block;width:100%;height:100%;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges;}
 .hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;
   padding:10px 16px;pointer-events:none;font-variant-numeric:tabular-nums;}
-.hud .lbl{font-size:16px;line-height:1;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-.hud .val{font-family:var(--display);font-weight:700;font-size:22px;line-height:1.1;color:var(--orange);}
+.hud .lbl{font-size:11px;line-height:1;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.hud .val{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.1;color:var(--orange);}
 .hud .mid{text-align:center}
 .hud .mid .val{color:var(--cyan)}
 .hud .right{text-align:right}
@@ -49,30 +51,36 @@ canvas{display:block;width:100%;height:100%;touch-action:none;image-rendering:pi
 .lives i{width:12px;height:8px;background:var(--red);display:block}
 .lives i.off{background:var(--deep)}
 .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:safe center;overflow-y:auto;
-  gap:14px;padding-inline:20px;padding-block:20px;text-align:center;background:rgba(0,0,0,.86);}
-.overlay h1{font-family:var(--display);font-weight:700;font-size:clamp(34px,11vw,54px);line-height:1;margin:0;
+  gap:14px;padding-inline:20px;padding-block:20px;text-align:center;background:rgba(6,7,58,.9);}
+.overlay h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,13vw,62px);line-height:.95;margin:0;
   letter-spacing:.04em;text-transform:uppercase;
-  background:linear-gradient(to bottom,var(--red) 0 20%,var(--orange) 20% 40%,var(--yellow) 40% 60%,var(--green) 60% 80%,var(--cyan) 80% 100%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;}
-.bands{width:min(260px,70vw);height:18px;background:linear-gradient(to bottom,var(--red) 0 20%,var(--orange) 20% 40%,var(--yellow) 40% 60%,var(--green) 60% 80%,var(--cyan) 80% 100%)}
-.overlay h2{font-family:var(--display);font-weight:700;font-size:clamp(24px,8vw,34px);line-height:1;margin:0;color:var(--ink);text-transform:uppercase;text-wrap:balance}
-.overlay p{margin:0;max-width:30ch;font-size:20px;line-height:1.15;color:var(--ink)}
+}
+.overlay h1 .arcade{display:block}
+.bands{width:min(300px,80vw);height:3px;background:var(--ink)}
+.overlay h2{font-family:var(--display);font-weight:400;font-size:clamp(24px,8vw,34px);line-height:1;margin:0;color:var(--ink);text-transform:uppercase;text-wrap:balance}
+.overlay p{margin:0;max-width:30ch;font-size:15px;line-height:1.35;color:var(--ink)}
 .tag{font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border:2px solid currentColor}
 .tag.monster{color:var(--red)} .tag.feature{color:var(--cyan)} .tag.remix{color:var(--yellow)}
 #introArt{width:120px;height:90px;image-rendering:pixelated}
-.rules{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;text-align:left;font-size:18px;line-height:1.05;max-width:330px}
-.rules b{font-family:var(--display);font-weight:700;color:var(--yellow);font-size:11px;text-transform:uppercase;padding-top:3px}
+.rules{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;text-align:left;font-size:14px;line-height:1.3;max-width:330px}
+.rules b{font-family:var(--display);font-size:14px;text-transform:uppercase;line-height:1.3}
 .rules span{min-width:0}
-button{font-family:var(--display);font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.06em;
+button{font-family:var(--display);font-weight:400;font-size:18px;text-transform:uppercase;letter-spacing:.06em;
   color:var(--night);background:var(--orange);border:0;border-radius:0;padding:12px 28px;cursor:pointer;
   box-shadow:inset -4px -4px 0 rgba(0,0,0,.35),inset 4px 4px 0 rgba(255,255,255,.25)}
 button:active{box-shadow:inset 4px 4px 0 rgba(0,0,0,.35)}
 button:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
 button.link{background:none;box-shadow:none;color:var(--muted);font-size:11px;padding:6px 10px;border:2px solid var(--deep)}
-.small{font-size:18px;color:var(--muted)}
-.me{font-size:18px;color:var(--green);min-height:1em}
-.note{position:absolute;left:16px;right:16px;top:70px;z-index:10;padding:10px 14px;background:var(--green);color:var(--night);font-size:20px;line-height:1.1;text-align:center}
-.big{font-family:var(--display);font-weight:700;font-size:40px;color:var(--yellow)}
+.small{font-size:13px;color:var(--muted)}
+.me{font-size:13px;color:var(--green);min-height:1em}
+.note{position:absolute;left:16px;right:16px;top:70px;z-index:10;padding:10px 14px;background:var(--green);color:var(--night);font-size:14px;line-height:1.3;text-align:center}
+.big{font-family:var(--display);font-weight:400;font-size:40px;color:var(--yellow)}
+
+.arcade,.overlay h2,.hud .val,.big,.rules b{
+  background:linear-gradient(to bottom,#ff3b1a 0 28%,#ff7a00 28% 32%,#ff3b1a 32% 36%,#ff7a00 36% 48%,#ffc400 48% 52%,#ff7a00 52% 56%,#ffc400 56% 68%,#fff200 68% 72%,#ffc400 72% 76%,#fff200 76% 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent!important;
+  filter:drop-shadow(3px 3px 0 var(--shadow)) drop-shadow(1px 1px 0 var(--shadow2));}
+.hud .val,.rules b{filter:drop-shadow(2px 2px 0 var(--shadow))}
 @media (prefers-reduced-motion:reduce){#wrap::after{display:none}}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}[hidden]{display:none!important}/* alles wat de host aan body toevoegt (badges, banners) verbergen */
@@ -91,7 +99,8 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
 
   <div class="note" id="meNote" hidden></div>
   <div class="overlay" id="menu">
-    <h1>Bubbel<br>bende</h1>
+    <div class="bands"></div>
+    <h1><span class="arcade">Bubbel</span><span class="arcade">bende</span></h1>
     <div class="bands"></div>
     <div class="rules">
       <b>Pong</b><span>Schuif met je duim onderin. Tik om de bal te lanceren.</span>
@@ -118,7 +127,7 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
   </div>
 
   <div class="overlay" id="over" hidden>
-    <h1>Game<br>over</h1>
+    <h1><span class="arcade">Game</span><span class="arcade">over</span></h1>
     <div class="big" id="finalScore">0</div>
     <p id="overMsg"></p>
     <button id="againBtn">Nog een keer</button>
@@ -129,7 +138,7 @@ body > :not(#wrap):not(script):not(style){display:none!important;pointer-events:
 (()=>{
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
-const C={bubble:'#5cb6d6',candy:'#d84a3c',lime:'#e0c84a',ink:'#ececec',muted:'#8c8c8c',deep:'#2a2a2a',night:'#000000',
+const C={bubble:'#5cb6d6',candy:'#d84a3c',lime:'#e0c84a',ink:'#ececec',muted:'#8c8c8c',deep:'#1a1f6e',night:'#06073a',
   orange:'#d6833a',violet:'#a05ac8',gold:'#58b04a'};
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -255,7 +264,7 @@ function drawIntroArt(w){
   const c=$('introArt'),g=c.getContext('2d');g.clearRect(0,0,240,180);
   if(w.type==='feature'){
     const f=FEATURE_INFO[w.key];g.beginPath();g.arc(120,90,56,0,Math.PI*2);g.fillStyle=f.col;g.fill();
-    g.fillStyle=C.night;g.font='64px Silkscreen, monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(f.l,120,96);
+    g.fillStyle=C.night;g.font='64px "Russo One", sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(f.l,120,96);
   } else {
     const keys=w.type==='remix'?monsters.slice(0,5):[w.key];
     const sz=keys.length>1?44:110,gap=sz+6,ox=120-(keys.length-1)*gap/2;
@@ -591,7 +600,7 @@ function draw(){
   ctx.save();
   ctx.fillStyle=C.night;ctx.fillRect(0,0,W,H);
   if(shake>.5&&!reduce)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
-  for(const s of stars){ctx.fillStyle=s.s>1.3?'#3a3a3a':'#1e1e1e';ctx.fillRect(s.x*W,s.y*H,2,2);}
+  for(const s of stars){ctx.fillStyle=s.s>1.3?'#3a42b0':'#1c2280';ctx.fillRect(s.x*W,s.y*H,2,2);}
   ctx.strokeStyle=C.deep;ctx.lineWidth=2;ctx.setLineDash([6,8]);
   ctx.beginPath();ctx.moveTo(0,60*S);ctx.lineTo(W,60*S);ctx.stroke();ctx.setLineDash([]);
   if(!paddle){ctx.restore();return;}
@@ -632,7 +641,7 @@ function draw(){
     } else {
       const fi=FEATURE_INFO[f.kind];
       ctx.fillStyle=fi.col;ctx.fillRect(f.x-12*S,f.y-12*S,24*S,24*S);
-      ctx.fillStyle=C.night;ctx.font=(16*S)+'px Silkscreen, monospace';ctx.fillText(fi.l,f.x,f.y+1*S);
+      ctx.fillStyle=C.night;ctx.font=(16*S)+'px "Russo One", sans-serif';ctx.fillText(fi.l,f.x,f.y+1*S);
     }
   }
   for(const s of shots){ctx.fillStyle=s.col;ctx.fillRect(s.x-2*S,s.y-8*S,4*S,12*S);}
@@ -661,7 +670,7 @@ function draw(){
 
   for(const p of parts){ctx.globalAlpha=Math.max(0,p.life/.6);ctx.fillStyle=p.col;ctx.fillRect(p.x-2,p.y-2,4,4);}
   ctx.globalAlpha=1;
-  for(const p of pops){ctx.globalAlpha=Math.min(1,p.life*2);ctx.font=(16*S)+'px Silkscreen, monospace';ctx.fillStyle=p.col;ctx.fillText(p.txt,p.x,p.y);}
+  for(const p of pops){ctx.globalAlpha=Math.min(1,p.life*2);ctx.font=(16*S)+'px "Russo One", sans-serif';ctx.fillStyle='#1f2bd8';ctx.fillText(p.txt,p.x+2*S,p.y+2*S);ctx.fillStyle=p.col;ctx.fillText(p.txt,p.x,p.y);}
   ctx.globalAlpha=1;
 
   /* actieve vaardigheden onderin */
@@ -670,7 +679,7 @@ function draw(){
   if(fx.vuur>0)act.push(['vuur',Math.ceil(fx.vuur)+'s']);
   if(fx.krimp>0)act.push(['krimp',Math.ceil(fx.krimp)+'s']);
   if(fx.schild>0)act.push(['schild','x'+fx.schild]);
-  ctx.font=(16*S)+'px Silkscreen, monospace';
+  ctx.font=(16*S)+'px "Russo One", sans-serif';
   act.forEach(([k,t],i)=>{
     const x=W/2+(i-(act.length-1)/2)*70*S,y=paddle.y+56*S;
     ctx.fillStyle=FEATURE_INFO[k].col;ctx.fillRect(x-30*S,y-8*S,10*S,16*S);
@@ -680,11 +689,11 @@ function draw(){
   /* bedieningszone onder de paddle */
   const zt=paddle.y+76*S,zh=H-zt-10*S;
   if(zh>30*S){
-    ctx.fillStyle='#141414';ctx.fillRect(10*S,zt,W-20*S,zh);
+    ctx.fillStyle='#0c0e52';ctx.fillRect(10*S,zt,W-20*S,zh);
     const ty=zt+zh/2;ctx.strokeStyle=C.deep;ctx.lineWidth=4*S;ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(30*S,ty);ctx.lineTo(W-30*S,ty);ctx.stroke();
     ctx.fillStyle=pDown?C.lime:C.muted;ctx.fillRect(paddle.x-PW/2,ty-4*S,PW,8*S);
-    if(state==='play'&&balls.some(b=>b.stuck)){ctx.font=(16*S)+'px Silkscreen, monospace';ctx.fillStyle=C.muted;
+    if(state==='play'&&balls.some(b=>b.stuck)){ctx.font=(16*S)+'px "Russo One", sans-serif';ctx.fillStyle=C.muted;
       ctx.fillText('schuif hier, tik = lanceer',W/2,ty+(zh>70*S?22*S:0)+ (zh>70*S?0:-16*S));}
   }
   ctx.restore();
