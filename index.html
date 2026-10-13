@@ -235,7 +235,7 @@ let monsters=[],features=[],fx={magneet:0,vuur:0,krimp:0,schild:0};
 function makeStars(){stars=[];for(let i=0;i<60;i++)stars.push({x:Math.random(),y:Math.random(),s:Math.random()*1.6+.3,v:Math.random()*.02+.005});}
 function waveInfo(n){return WAVES[n-1]||{type:'remix',naam:'Remix',tekst:''};}
 function startBalls(){return 1;}
-function volley(){return wave>WAVES.length?3:wave>=9?3:wave>=5?2:1;}
+function volley(){return wave<=WAVES.length?1:wave<=WAVES.length+2?2:3;}
 
 function newGame(){
   score=0;lives=3;wave=1;combo=1;nextLife=LIFE_STEP;monsters=[];features=[];fx={magneet:0,vuur:0,krimp:0,schild:0};
@@ -285,7 +285,7 @@ function startWave(){
   const w=waveInfo(wave);
   const pool=monsters.filter(k=>k!=='moeder');
   const remix=w.type==='remix';
-  const rows=Math.min(3+Math.floor((wave-1)/2)+(remix?1:0),7),cols=6;
+  const rows=Math.min(3+Math.floor((wave-1)/3)+(remix?1:0),6),cols=6;
   const gx=46*S,gy=38*S,ox=(W-(cols-1)*gx)/2,oy=100*S;
   const newest=w.type==='monster'&&w.key!=='moeder'?w.key:null;
   for(let r=0;r<rows;r++){
@@ -478,7 +478,7 @@ function update(dt){
       if(s.kind==='sproeier')for(const vx of[-70,0,70])shots.push({x:s.x,y:s.y+10*S,vx:vx*S,vy:SHOT*S,col:C.lime});
       else shots.push({x:s.x,y:s.y+10*S,vx:0,vy:SHOT*S,col:C.candy});
     }
-    shootT=SHOOT_GAP*(.6+Math.random()*.8);
+    shootT=SHOOT_GAP*(.6+Math.random()*.8)*(shooters.some(x=>x.kind==='sproeier')?1.8:1);
   }
   for(const s of shots){s.x+=s.vx*dt;s.y+=s.vy*dt;}
   for(const s of shots.slice()){
